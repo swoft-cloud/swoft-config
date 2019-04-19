@@ -1,32 +1,40 @@
 <?php declare(strict_types=1);
 
+
 namespace Swoft\Config\Parser;
 
 
 use Swoft\Bean\Annotation\Mapping\Bean;
 use Swoft\Config\Config;
+use Swoft\Config\Exception\ConfigException;
 use Swoft\Stdlib\Helper\ArrayHelper;
 use Swoft\Stdlib\Helper\DirectoryHelper;
+use Symfony\Component\Yaml\Yaml;
 
 /**
- * Class PhpParser
+ * Class YamlParser
  *
- * @Bean("phpParser")
+ * @since 2.0
+ *
+ * @Bean(name="yamlParser")
  */
-class PhpParser extends Parser
+class YamlParser extends Parser
 {
     /**
-     * Parse php files
-     *
      * @param Config $config
      *
      * @return array
+     * @throws ConfigException
      */
     public function parse(Config $config): array
     {
+        if (!\class_exists('Symfony\Component\Yaml\Yaml')) {
+            throw new ConfigException('You must to composer require symfony/yaml');
+        }
+
         $base     = $config->getBase();
         $path     = $config->getPath();
-        $baseFile = sprintf('%s.%s', $base, Config::TYPE_PHP);
+        $baseFile = sprintf('%s.%s', $base, Config::TYPE_YAML);
 
         $iterator = DirectoryHelper::iterator($path);
 
@@ -40,7 +48,7 @@ class PhpParser extends Parser
             $ext = $splFileInfo->getExtension();
             $ext = strtolower($ext);
 
-            if ($ext != Config::TYPE_PHP) {
+            if ($ext != Config::TYPE_YAML) {
                 continue;
             }
 
@@ -50,7 +58,7 @@ class PhpParser extends Parser
 
             // Base config
             if ($fileName == $baseFile) {
-                $baseConfig = require $filePath;
+                $baseConfig = Yaml::parseFile($filePath);
                 continue;
             }
 
@@ -63,7 +71,11 @@ class PhpParser extends Parser
                 $key = sprintf('%s.%s', $dirKey, $key);
             }
 
-            $data = require $filePath;
+            $data = Yaml::parseFile($filePath);
+            if (empty($data)) {
+                continue;
+            }
+
             ArrayHelper::set($otherConfig, $key, $data);
         }
 
